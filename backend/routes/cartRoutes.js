@@ -1,5 +1,6 @@
 // backend/routes/cartRoutes.js
 const express = require("express");
+const mongoose = require("mongoose");
 const router = express.Router();
 const Cart = require("../models/Cart");
 const Grocery = require("../models/Grocery");
@@ -42,7 +43,7 @@ router.post("/add", verifyToken, async (req, res) => {
 
         if (idx > -1) {
             cart.items[idx].quantity += quantity;
-            // update snapshot price/name in case changed
+            // update snapshot price/name in case changed  
             cart.items[idx].price = product.price;
             cart.items[idx].name = product.name;
             cart.items[idx].imageUrl = product.imageUrl;
@@ -63,6 +64,7 @@ router.post("/add", verifyToken, async (req, res) => {
         console.error("Cart add error:", err);
         res.status(500).json({ message: "Error adding to cart" });
     }
+
 });
 
 // GET /api/cart
@@ -72,13 +74,14 @@ router.get("/", verifyToken, async (req, res) => {
         const cart = await Cart.findOne({ userId });
         if (!cart) return res.json({ items: [], total: 0 });
 
-        // calculate total
+        // calculate total  
         const total = cart.items.reduce((s, it) => s + (it.price || 0) * it.quantity, 0);
         res.json({ items: cart.items, total });
     } catch (err) {
         console.error("Cart get error:", err);
         res.status(500).json({ message: "Error fetching cart" });
     }
+
 });
 
 // PUT /api/cart/update/:itemId  -> update quantity
@@ -102,41 +105,48 @@ router.put("/update/:itemId", verifyToken, async (req, res) => {
         console.error("Cart update error:", err);
         res.status(500).json({ message: "Error updating cart" });
     }
+
 });
+
+
 
 // DELETE /api/cart/remove/:itemId
 router.delete("/remove/:itemId", verifyToken, async (req, res) => {
     try {
         const userId = req.user.id || req.user._id;
+
         const cart = await Cart.findOne({ userId });
-        if (!cart) return res.status(404).json({ message: "Cart not found" });
+        if (!cart) {
+            return res.status(404).json({ message: "Cart not found for this user" });
+        }
 
-        const item = cart.items.id(req.params.itemId);
-        if (!item) return res.status(404).json({ message: "Item not found" });
+        const itemId = new mongoose.Types.ObjectId(req.params.itemId);
 
-        item.remove();
+        const exists = cart.items.some(
+            item => item._id.equals(itemId)
+        );
+
+        if (!exists) {
+            return res.status(404).json({ message: "Item not found in cart" });
+        }
+
+        cart.items.pull({ _id: itemId });
         await cart.save();
-        const total = cart.items.reduce((s, it) => s + (it.price || 0) * it.quantity, 0);
-        res.json({ message: "Removed", total, items: cart.items });
+
+        const total = cart.items.reduce(
+            (sum, it) => sum + it.price * it.quantity,
+            0
+        );
+
+        res.json({
+            message: "Item removed successfully",
+            items: cart.items,
+            total
+        });
+
     } catch (err) {
         console.error("Cart remove error:", err);
         res.status(500).json({ message: "Error removing item from cart" });
-    }
-});
-
-// DELETE /api/cart  -> clear cart
-router.delete("/", verifyToken, async (req, res) => {
-    try {
-        const userId = req.user.id || req.user._id;
-        const cart = await Cart.findOne({ userId });
-        if (cart) {
-            cart.items = [];
-            await cart.save();
-        }
-        res.json({ message: "Cart cleared" });
-    } catch (err) {
-        console.error("Cart clear error:", err);
-        res.status(500).json({ message: "Error clearing cart" });
     }
 });
 

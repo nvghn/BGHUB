@@ -11,15 +11,15 @@ const isAdmin = require("../middleware/isAdmin");
 // ✅ GET - Single item by ID
 router.get("/:id", async (req, res) => {
     try {
-            const item = await Grocery.findById(req.params.id);
-                    if (!item) {
-                                return res.status(404).json({ message: "Item not found" });
-                                        }
-                                                res.json(item);
-                                                    } catch (err) {
-                                                            res.status(500).json({ message: "Error fetching item" });
-                                                                }
-                                                                });
+        const item = await Grocery.findById(req.params.id);
+        if (!item) {
+            return res.status(404).json({ message: "Item not found" });
+        }
+        res.json(item);
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching item" });
+    }
+});
 
 // ✅ GET - All items
 router.get("/", async (req, res) => {
