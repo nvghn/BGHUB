@@ -10,6 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+const adminRoutes = require("./routes/adminRoutes");
 const authRoutes = require("./routes/authRoutes");
 const groceryRoutes = require("./routes/groceryRoutes");
 const foodRoutes = require("./routes/foodRoutes");
@@ -18,7 +19,7 @@ const dairyRoutes = require("./routes/dairyRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 
-
+app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/groceries", groceryRoutes);
 app.use("/api/foods", foodRoutes);
