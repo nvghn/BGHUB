@@ -8,6 +8,17 @@ const Food = require("../models/Food");
 const Medicine = require("../models/Medicine");
 const Dairy = require("../models/Dairy");
 const verifyToken = require("../middleware/authMiddleware");
+const product = await Model.findOne({
+      _id: productId,
+        isActive: true
+        });
+
+        if (!product) {
+          return res.status(400).json({
+              message: "This category is currently disabled"
+                });
+                }
+
 
 const MODEL_MAP = {
     Grocery, Food, Medicine, Dairy

@@ -18,7 +18,9 @@ const medicineRoutes = require("./routes/medicineRoutes");
 const dairyRoutes = require("./routes/dairyRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const adminCategoryRoutes = require("./routes/adminCategoryRoutes");
 
+app.use("/api/admin", adminCategoryRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/groceries", groceryRoutes);
