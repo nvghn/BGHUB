@@ -9,15 +9,15 @@ const Medicine = require("../models/Medicine");
 const Dairy = require("../models/Dairy");
 const verifyToken = require("../middleware/authMiddleware");
 const product = await Model.findOne({
-      _id: productId,
-        isActive: true
-        });
+    _id: productId,
+    isActive: true
+});
 
-        if (!product) {
-          return res.status(400).json({
-              message: "This category is currently disabled"
-                });
-                }
+if (!product) {
+    return res.status(400).json({
+        message: "This category is currently disabled"
+    });
+}
 
 
 const MODEL_MAP = {
@@ -31,37 +31,64 @@ async function getOrCreateCart(userId) {
     return cart;
 }
 
-// POST /api/cart/add
+// POST /api/add
+
 router.post("/add", verifyToken, async (req, res) => {
     try {
         const userId = req.user.id || req.user._id;
-        const { productId, quantity = 1, category } = req.body;
+        const { productId, quantity = 1 } = req.body;
 
-        if (!productId || !category || quantity <= 0) {
-            return res.status(400).json({ message: "productId, category and quantity required" });
+        if (!productId || quantity <= 0) {
+            return res.status(400).json({
+                message: "productId and valid quantity required"
+            });
         }
-        const Model = MODEL_MAP[category];
-        if (!Model) return res.status(400).json({ message: "Invalid category" });
 
-        const product = await Model.findById(productId).lean();
-        if (!product) return res.status(404).json({ message: "Product not found" });
+        // 🔍 Step 1: product ko sab collections me dhundo
+        let product = null;
+        let mainCategory = null;
 
+        for (const [categoryName, Model] of Object.entries(MODEL_MAP)) {
+            const found = await Model.findById(productId).lean();
+            if (found) {
+                product = found;
+                mainCategory = categoryName;
+                break;
+            }
+        }
+
+        // ❌ Product mila hi nahi
+        if (!product) {
+            return res.status(404).json({
+                message: "Product not found"
+            });
+        }
+
+        // ❌ Product disabled hai
+        if (!product.isActive) {
+            return res.status(400).json({
+                message: "This product is currently disabled"
+            });
+        }
+
+        // ✅ Step 2: cart lao / banao
         const cart = await getOrCreateCart(userId);
 
-        const idx = cart.items.findIndex(
-            it => String(it.productId) === String(productId) && it.category === category
+        const index = cart.items.findIndex(
+            item =>
+                String(item.productId) === String(productId) &&
+                item.category === mainCategory
         );
 
-        if (idx > -1) {
-            cart.items[idx].quantity += quantity;
-            // update snapshot price/name in case changed  
-            cart.items[idx].price = product.price;
-            cart.items[idx].name = product.name;
-            cart.items[idx].imageUrl = product.imageUrl;
+        if (index > -1) {
+            cart.items[index].quantity += quantity;
+            cart.items[index].price = product.price;
+            cart.items[index].name = product.name;
+            cart.items[index].imageUrl = product.imageUrl;
         } else {
             cart.items.push({
                 productId,
-                category,
+                category: mainCategory, // 👈 auto detected
                 name: product.name,
                 imageUrl: product.imageUrl,
                 price: product.price,
@@ -70,12 +97,18 @@ router.post("/add", verifyToken, async (req, res) => {
         }
 
         await cart.save();
-        res.status(200).json(cart);
+
+        res.status(200).json({
+            message: "Item added to cart",
+            cart
+        });
+
     } catch (err) {
         console.error("Cart add error:", err);
-        res.status(500).json({ message: "Error adding to cart" });
+        res.status(500).json({
+            message: "Error adding to cart"
+        });
     }
-
 });
 
 // GET /api/cart
