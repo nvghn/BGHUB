@@ -1,81 +1,162 @@
 const express = require("express");
 const router = express.Router();
+
 const Dairy = require("../models/Dairy");
 const verifyToken = require("../middleware/authMiddleware");
+const isAdmin = require("../middleware/isAdmin");
 
-// ✅ POST - Add Dairy Item
-router.post("/add", verifyToken, async (req, res) => {
-    const { name, price, imageUrl, stock, category } = req.body;
+const ALL_CATEGORIES = ["Grocery", "Food", "Dairy", "Medicine"];
+const validCategories = ["Milk", "Ghee", "Sweet"];
 
-    if (!["Milk", "Ghee", "Sweet"].includes(category)) {
-        return res.status(400).json({ message: "Invalid category. Use Milk, Ghee, or Sweet." });
-    }
 
-    try {
-        const newItem = new Dairy({ name, price, imageUrl, stock, category });
-        await newItem.save();
-        res.status(201).json(newItem);
-    } catch (err) {
-        res.status(500).json({ message: "Error adding dairy item" });
-    }
-});
+// ----------------------
+// USER ROUTES
+// ----------------------
 
-// ✅ GET - All Items
+// ✅ GET - All ACTIVE products
 router.get("/", async (req, res) => {
     try {
-        const items = await Dairy.find();
-        res.json(items);
+        const products = await Dairy.find({ isActive: true });
+
+        if (products.length === 0) {
+            const suggest = ALL_CATEGORIES.filter(c => c !== "Dairy");
+
+            return res.status(200).json({
+                message: "No products available in Dairy",
+                suggest,
+                items: []
+            });
+        }
+
+        res.json({ items: products });
+
     } catch (err) {
-        res.status(500).json({ message: "Failed to load items" });
+        console.error("Dairy fetch error:", err);
+        res.status(500).json({ message: "Server error" });
     }
 });
 
-// ✅ GET - Items by Category
-router.get("/category/:type", async (req, res) => {
-    const type = req.params.type;
 
-    if (!["Milk", "Ghee", "Sweet"].includes(type)) {
-        return res.status(400).json({ message: "Invalid category." });
+// ✅ GET - Single item
+router.get("/:id", async (req, res) => {
+    try {
+        const item = await Dairy.findById(req.params.id);
+
+        if (!item || !item.isActive) {
+            return res.status(404).json({ message: "Item not found or disabled" });
+        }
+
+        res.json(item);
+
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching item" });
+    }
+});
+
+
+// ✅ GET - By Category
+router.get("/category/:type", async (req, res) => {
+    const categoryType = req.params.type;
+
+    if (!validCategories.includes(categoryType)) {
+        return res.status(400).json({ message: "Invalid category type" });
     }
 
     try {
-        const items = await Dairy.find({ category: type });
-        res.status(200).json(items);
+        const items = await Dairy.find({
+            category: categoryType,
+            isActive: true
+        });
+
+        if (items.length === 0) {
+            const suggest = ALL_CATEGORIES.filter(c => c !== "Dairy");
+
+            return res.json({
+                message: `No ${categoryType} items available`,
+                suggest,
+                items: []
+            });
+        }
+
+        res.json({ items });
+
     } catch (err) {
         res.status(500).json({ message: "Failed to load items by category" });
     }
 });
 
-// ✅ DELETE
-router.delete("/:id", verifyToken, async (req, res) => {
+
+// ----------------------
+// ADMIN ROUTES
+// ----------------------
+
+// ✅ POST - Add item
+router.post("/add", verifyToken, isAdmin, async (req, res) => {
+    const { name, price, imageUrl, stock, category } = req.body;
+
+    if (!validCategories.includes(category)) {
+        return res.status(400).json({ message: "Invalid category type" });
+    }
+
     try {
-        const deleted = await Dairy.findByIdAndDelete(req.params.id);
-        if (!deleted) return res.status(404).json({ message: "Item not found" });
-        res.json({ message: "Item deleted" });
+        const newItem = new Dairy({
+            name,
+            price,
+            imageUrl,
+            stock,
+            category,
+            isActive: true
+        });
+
+        await newItem.save();
+        res.status(201).json(newItem);
+
     } catch (err) {
-        res.status(500).json({ message: "Error deleting item" });
+        res.status(500).json({ message: "Error adding dairy item" });
     }
 });
 
-// ✅ PUT - Update
-router.put("/update/:id", verifyToken, async (req, res) => {
-    const { name, price, imageUrl, stock, category } = req.body;
 
-    if (!["Milk", "Ghee", "Sweet"].includes(category)) {
-        return res.status(400).json({ message: "Invalid category." });
+// ✅ PUT - Update item
+router.put("/:id", verifyToken, isAdmin, async (req, res) => {
+    const { name, price, imageUrl, stock, category, isActive } = req.body;
+
+    if (category && !validCategories.includes(category)) {
+        return res.status(400).json({ message: "Invalid category type" });
     }
 
     try {
         const updated = await Dairy.findByIdAndUpdate(
             req.params.id,
-            { name, price, imageUrl, stock, category },
+            { name, price, imageUrl, stock, category, isActive },
             { new: true }
         );
 
-        if (!updated) return res.status(404).json({ message: "Item not found" });
+        if (!updated) {
+            return res.status(404).json({ message: "Item not found" });
+        }
+
         res.json(updated);
+
     } catch (err) {
         res.status(500).json({ message: "Error updating item" });
+    }
+});
+
+
+// ✅ DELETE - Remove item
+router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
+    try {
+        const deleted = await Dairy.findByIdAndDelete(req.params.id);
+
+        if (!deleted) {
+            return res.status(404).json({ message: "Item not found" });
+        }
+
+        res.json({ message: "Item deleted" });
+
+    } catch (err) {
+        res.status(500).json({ message: "Error deleting item" });
     }
 });
 
