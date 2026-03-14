@@ -1,94 +1,126 @@
-import { useContext, useState } from "react";
-import API from "../api/api";
+import React, { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
-export default function Login() {
+const Login = () => {
+    const { login, register, loading, error } = useContext(AuthContext);
+    const navigate = useNavigate();
 
-  const { login } = useContext(AuthContext);
-  const navigate = useNavigate();
+    const [isRegisterMode, setIsRegisterMode] = useState(false);
+    const [formData, setFormData] = useState({
+        name: "",
+        email: "",
+        password: "",
+        phone: ""
+    });
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
 
-  const handleLogin = async () => {
+    const handleSubmit = async (e) => {
+        e.preventDefault();
 
-    if (!email || !password) {
-      alert("Email and Password required");
-      return;
-    }
+        if (isRegisterMode) {
+            // Register
+            const result = await register(
+                formData.name,
+                formData.email,
+                formData.password,
+                formData.phone
+            );
+            
+            if (result.success) {
+                navigate("/");
+            }
+        } else {
+            // Login
+            const result = await login(formData.email, formData.password);
+            
+            if (result.success) {
+                navigate("/");
+            }
+        }
+    };
 
-    try {
+    return (
+        <div style={{ maxWidth: "400px", margin: "50px auto", padding: "20px" }}>
+            <h2>{isRegisterMode ? "Register" : "Login"}</h2>
 
-      setLoading(true);
+            {error && <p style={{ color: "red" }}>{error}</p>}
 
-      const res = await API.post("/auth/login", {
-        email,
-        password
-      });
+            <form onSubmit={handleSubmit}>
+                
+                {isRegisterMode && (
+                    <>
+                        <input
+                            type="text"
+                            name="name"
+                            placeholder="Full Name"
+                            value={formData.name}
+                            onChange={handleInputChange}
+                            required
+                            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+                        />
+                        <br />
 
-      console.log("Login Success:", res.data);
+                        <input
+                            type="text"
+                            name="phone"
+                            placeholder="Phone Number"
+                            value={formData.phone}
+                            onChange={handleInputChange}
+                            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+                        />
+                        <br />
+                    </>
+                )}
 
-      // save token + role
-      login(res.data.token, res.data.role);
+                <input
+                    type="email"
+                    name="email"
+                    placeholder="Email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+                />
+                <br />
 
-      // redirect based on role
-      if (res.data.role === "admin") {
-        navigate("/P5K4B7/dashboard");
-      } else {
-        navigate("/");
-      }
+                <input
+                    type="password"
+                    name="password"
+                    placeholder="Password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                    style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+                />
+                <br />
 
-    }
-    catch (error) {
+                <button 
+                    type="submit" 
+                    disabled={loading}
+                    style={{ width: "100%", padding: "10px", cursor: "pointer" }}
+                >
+                    {loading ? "Processing..." : isRegisterMode ? "Register" : "Login"}
+                </button>
+            </form>
 
-      console.log("Login Error:", error.response?.data || error.message);
+            <br />
 
-      alert(
-        error.response?.data?.message ||
-        "Login failed"
-      );
+            <button 
+                onClick={() => setIsRegisterMode(!isRegisterMode)}
+                style={{ width: "100%", padding: "10px" }}
+            >
+                {isRegisterMode ? "Already have an account? Login" : "Don't have an account? Register"}
+            </button>
+        </div>
+    );
+};
 
-    }
-    finally {
-      setLoading(false);
-    }
-
-  };
-
-  return (
-
-    <div style={{ maxWidth: "400px", margin: "auto" }}>
-
-      <h2>Login</h2>
-
-      <input
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-
-      <br /><br />
-
-      <input
-        placeholder="Password"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-
-      <br /><br />
-
-      <button
-        onClick={handleLogin}
-        disabled={loading}
-      >
-        {loading ? "Logging in..." : "Login"}
-      </button>
-
-    </div>
-
-  );
-
-}
+export default Login;
