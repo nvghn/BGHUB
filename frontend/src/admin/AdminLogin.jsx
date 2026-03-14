@@ -18,11 +18,8 @@ const AdminLogin = () => {
         setLoading(true);
 
         try {
-            const res = await apiClient.post("/auth/login", {
-                email,
-                password
-            });
-
+            // Call backend login API
+            const res = await apiClient.post("/auth/login", { email, password });
             const { token, role } = res.data;
 
             // Admin check
@@ -32,16 +29,14 @@ const AdminLogin = () => {
                 return;
             }
 
-            // Call context login (which stores token)
-            await login(email, password);
+            // Correctly login in context
+            login(token, role);
 
+            // Navigate to admin dashboard
             navigate("/P5K4B7/dashboard");
 
         } catch (err) {
-            setError(
-                err.response?.data?.message ||
-                "Invalid email or password"
-            );
+            setError(err.response?.data?.message || "Invalid email or password");
         } finally {
             setLoading(false);
         }
