@@ -1,36 +1,46 @@
-import { Routes, Route } from "react-router-dom";
+import React, { useEffect, useState, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
+import { getCart, updateCartQty, removeCartItem, toggleCartItem } from "../services/cartService";
 
-import Home from "./pages/Home";
-import Grocery from "./pages/Grocery";
-import Cart from "./pages/Cart";
-import Checkout from "./pages/Checkout";
-import Login from "./pages/Login";
-import Addresses from "./pages/Addresses";
+const Cart = () => {
+  const { token } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [cart, setCart] = useState(null);
 
-import AdminProtectedRoute from "./components/AdminProtectedRoute";
-import AdminLogin from "./admin/AdminLogin";
-import AdminDashboard from "./admin/AdminDashboard";
-import AdminGrocery from "./admin/AdminGrocery";
-import AdminOrders from "./admin/AdminOrders";
-import AdminProducts from "./admin/AdminProducts";
+  const loadCart = async () => {
+    const data = await getCart(token);
+    setCart(data);
+  };
 
-function App() {
+  useEffect(() => { loadCart(); }, []);
+
+  const updateQty = async (id, qty) => { await updateCartQty(id, qty, token); loadCart(); };
+  const removeItem = async (id) => { await removeCartItem(id, token); loadCart(); };
+  const toggleItem = async (id) => { await toggleCartItem(id, token); loadCart(); };
+
+  if (!cart) return <h2>Loading...</h2>;
+
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/grocery" element={<Grocery />} />
-      <Route path="/cart" element={<Cart />} />
-      <Route path="/checkout" element={<Checkout />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/addresses" element={<Addresses />} />
-
-      <Route path="/P5K4B7" element={<AdminLogin />} />
-      <Route path="/P5K4B7/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
-      <Route path="/P5K4B7/grocery" element={<AdminProtectedRoute><AdminGrocery /></AdminProtectedRoute>} />
-      <Route path="/P5K4B7/orders" element={<AdminProtectedRoute><AdminOrders /></AdminProtectedRoute>} />
-      <Route path="/P5K4B7/products" element={<AdminProtectedRoute><AdminProducts /></AdminProtectedRoute>} />
-    </Routes>
+    <div>
+      <h1>Your Cart</h1>
+      {cart.items.map(item => (
+        <div key={item._id}>
+          <img src={item.imageUrl} width="80" />
+          <h3>{item.name}</h3>
+          <p>₹ {item.price}</p>
+          <p>Qty: {item.quantity}</p>
+          <button onClick={() => updateQty(item._id, item.quantity + 1)}>+</button>
+          <button onClick={() => updateQty(item._id, item.quantity - 1)}>-</button>
+          <button onClick={() => toggleItem(item._id)}>{item.selected ? "Unselect" : "Select"}</button>
+          <button onClick={() => removeItem(item._id)}>Remove</button>
+        </div>
+      ))}
+      <h2>Total: ₹ {cart.total}</h2>
+      <h2>Selected Total: ₹ {cart.selectedTotal}</h2>
+      <button onClick={() => navigate("/checkout")}>Checkout</button>
+    </div>
   );
-}
+};
 
-export default App;
+export default Cart;
